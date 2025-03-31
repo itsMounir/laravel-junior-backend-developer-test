@@ -9,14 +9,13 @@ use App\Services\PhoneValidationService;
 use App\Traits\Responses;
 use Illuminate\Support\Facades\DB;
 
-class InquiryController extends Controller
+class InquiriesController extends Controller
 {
     use Responses;
 
     public function __construct(
         protected PhoneValidationService $phoneValidationService
     ) {
-        $this->phoneValidationService = $phoneValidationService;
     }
 
     /**

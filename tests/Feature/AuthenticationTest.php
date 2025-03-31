@@ -33,7 +33,8 @@ class AuthenticationTest extends TestCase
                     'first_name',
                     'last_name',
                     'email',
-                ]
+                ],
+                'access_token'
             ]);
 
         $this->assertDatabaseHas('users', [

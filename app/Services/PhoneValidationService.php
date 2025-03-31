@@ -2,65 +2,71 @@
 
 namespace App\Services;
 
+use Exception;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use App\Exceptions\PhoneValidationException;
 
 class PhoneValidationService
 {
-    // API configuration
     protected string $apiKey;
     protected string $endpoint = 'https://phonevalidation.abstractapi.com/v1/';
-    // Cache duration in seconds (24 hours)
     protected int $cacheDuration;
 
     public function __construct()
     {
-        // Get API key from config file
         $this->apiKey = config('services.abstract.phone_validation_key');
         $this->cacheDuration = config('services.abstract.phone_validation_cache_duration');
     }
 
     public function validate(string $phoneNumber): array
     {
-        // Create a unique cache key for this phone number
-        $cacheKey = "phone_validation_{$phoneNumber}";
+        try {
+            // Create a unique cache key for this phone number
+            $cacheKey = "phone_validation_{$phoneNumber}";
 
-        // Check if we have cached results for this number
-        if (Cache::has($cacheKey)) {
-            return Cache::get($cacheKey);
-        }
+            // Check if we have cached results for this number
+            if (Cache::has($cacheKey)) {
+                return Cache::get($cacheKey);
+            }
 
-        // If not in cache, make API call with retry mechanism
-        $response = Http::timeout(10)
-            ->retry(3, 100)  // Retry 3 times with 100ms delay
-            ->get($this->endpoint, [
-                'api_key' => $this->apiKey,
-                'phone' => $phoneNumber
-            ]);
+            // If not in cache, make API call with retry mechanism
+            $response = Http::timeout(10)
+                ->retry(3, 100)  // Retry 3 times with 100ms delay
+                ->get($this->endpoint, [
+                    'api_key' => $this->apiKey,
+                    'phone' => $phoneNumber
+                ]);
 
-        // Handle API errors
-        if ($response->failed()) {
+            // Handle API errors
+            if ($response->failed()) {
+                throw new PhoneValidationException(
+                    $this->getErrorMessage($response->status(), $response->body()),
+                    $response->status()
+                );
+            }
+
+            $data = $response->json();
+
+            // Check if the number is valid
+            if (!$data['valid']) {
+                throw new PhoneValidationException(
+                    $this->getInvalidNumberMessage($data),
+                    $response->status()
+                );
+            }
+
+            // Store valid result in cache for future use
+            Cache::put($cacheKey, $data, $this->cacheDuration);
+
+            return $data;
+
+        } catch (Exception $e) {
             throw new PhoneValidationException(
-                $this->getErrorMessage($response->status(), $response->body()),
-                $response->status()
+                $this->getErrorMessage($e->getCode(), $e->getMessage()),
+                $e->getCode()
             );
         }
-
-        $data = $response->json();
-
-        // Check if the number is valid
-        if (!$data['valid']) {
-            throw new PhoneValidationException(
-                $this->getInvalidNumberMessage($data),
-                $response->status()
-            );
-        }
-
-        // Store valid result in cache for future use
-        Cache::put($cacheKey, $data, $this->cacheDuration);
-
-        return $data;
     }
 
     /**
@@ -75,7 +81,8 @@ class PhoneValidationService
 
         // Format 10-digit numbers into (XXX) XXX-XXXX format
         if (strlen($number) === 10) {
-            return sprintf('(%s) %s-%s',
+            return sprintf(
+                '(%s) %s-%s',
                 substr($number, 0, 3),    // First 3 digits
                 substr($number, 3, 3),    // Next 3 digits
                 substr($number, 6, 4)     // Last 4 digits
@@ -84,7 +91,8 @@ class PhoneValidationService
 
         // Format 12-digit numbers into (XXX) XXX-XXX-XXX format
         if (strlen($number) === 12) {
-            return sprintf('(%s) %s-%s-%s',
+            return sprintf(
+                '(%s) %s-%s-%s',
                 substr($number, 0, 3),    // First 3 digits
                 substr($number, 3, 3),    // Next 3 digits
                 substr($number, 6, 3),    // Next 3 digits

@@ -29,13 +29,16 @@ class PhoneValidationException extends Exception
     {
         $statusCode = $this->getCode() ?: 422;
 
+        // return response()->json([
+        //     'message' => 'Phone validation failed',
+        //     'errors' => [
+        //         'phone' => [$this->getMessage()]
+        //     ],
+        // ], $statusCode);
+
         return response()->json([
-            'message' => 'Phone validation failed',
-            'errors' => [
-                'phone' => [$this->getMessage()]
-            ],
-            'code' => $statusCode
-        ], $statusCode);
+            'message' => 'Something went wrong, please try again later.',
+        ],500);
     }
 
     public function getContext(): array

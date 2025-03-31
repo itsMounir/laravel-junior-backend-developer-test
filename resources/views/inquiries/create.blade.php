@@ -49,10 +49,7 @@
                             <div class="mb-3">
                                 <label for="company_id" class="form-label">Company</label>
                                 <select class="form-select" id="company_id" name="company_id" required>
-                                    <option value="">Select a company</option>
-                                    @foreach($companies as $company)
-                                        <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                    @endforeach
+                                    <option value="">Loading companies...</option>
                                 </select>
                                 <div class="invalid-feedback">Please select a company.</div>
                             </div>
@@ -78,44 +75,93 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Check if user is logged in
-        if (!localStorage.getItem('token')) {
+        // Authentication check and company loading
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!localStorage.getItem('token')) {
+                window.location.href = '/login';
+            } else {
+                loadCompanies();
+            }
+        });
+
+        async function loadCompanies() {
+            const companySelect = document.getElementById('company_id');
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/v1/companies', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        handleUnauthorized();
+                        return;
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                populateCompanies(data.companies);
+
+            } catch (error) {
+                console.error('Company loading failed:', error);
+                companySelect.innerHTML = `
+                    <option value="">Error loading companies</option>
+                    <option value="" disabled>Please refresh the page to try again</option>
+                `;
+            }
+        }
+
+        function populateCompanies(companies) {
+            const companySelect = document.getElementById('company_id');
+            companySelect.innerHTML = '<option value="">Select a company</option>';
+
+            companies.forEach(company => {
+                const option = document.createElement('option');
+                option.value = company.id;
+                option.textContent = company.name;
+                companySelect.appendChild(option);
+            });
+        }
+
+        function handleUnauthorized() {
+            localStorage.removeItem('token');
             window.location.href = '/login';
         }
 
+        // Logout function
         async function logout() {
             const logoutButton = document.getElementById('logoutButton');
             logoutButton.disabled = true;
 
             try {
-                // Send logout request to the server
                 const response = await fetch('http://127.0.0.1:8000/api/v1/auth/logout', {
-                    method: 'GET',
+                    method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'Accept': 'application/json'
                     }
                 });
 
                 if (response.ok) {
-                    // If server logout was successful, clear local storage and redirect
                     localStorage.removeItem('token');
                     window.location.href = '/login';
                 } else {
-                    // If there was an error with server logout, show error message
                     const data = await response.json();
                     alert(data.message || 'Logout failed');
-                    logoutButton.disabled = false;
                 }
             } catch (error) {
-                console.error('Error during logout:', error);
-                alert('Error during logout. Please try again.');
+                console.error('Logout error:', error);
+                alert('Error during logout');
+            } finally {
                 logoutButton.disabled = false;
             }
         }
 
-        // Form validation and submission
+        // Form submission handling
         const form = document.getElementById('inquiryForm');
         const submitButton = document.getElementById('submitButton');
         const spinner = submitButton.querySelector('.spinner-border');
@@ -129,9 +175,9 @@
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            e.stopPropagation();
 
             if (!form.checkValidity()) {
-                e.stopPropagation();
                 form.classList.add('was-validated');
                 return;
             }
@@ -162,21 +208,28 @@
                     form.reset();
                     form.classList.remove('was-validated');
                 } else {
-                    // Handle validation errors
-                    if (data.errors) {
-                        const errorMessages = Object.values(data.errors).flat().join('\n');
-                        alert(errorMessages);
-                    } else {
-                        alert(data.message || 'Error submitting inquiry');
-                    }
+                    handleApiError(response, data);
                 }
             } catch (error) {
-                console.error('Error:', error);
-                alert('Error submitting inquiry. Please try again.');
+                console.error('Submission error:', error);
+                alert('Network error. Please check your connection.');
             } finally {
                 setLoading(false);
             }
         });
+
+        function handleApiError(response, data) {
+            if (response.status === 422 && data.errors) {
+                const errorMessages = Object.values(data.errors)
+                    .flat()
+                    .join('\n');
+                alert(errorMessages);
+            } else if (response.status === 401) {
+                handleUnauthorized();
+            } else {
+                alert(data.message || 'An error occurred. Please try again.');
+            }
+        }
     </script>
 </body>
 </html>

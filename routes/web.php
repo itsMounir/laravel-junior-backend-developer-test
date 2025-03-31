@@ -28,6 +28,5 @@ Route::get('/register', function () {
 })->name('register');
 
 Route::get('/inquiries/create', function () {
-    $companies = Company::all();
-    return view('inquiries.create', compact('companies'));
+    return view('inquiries.create');
 });

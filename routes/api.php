@@ -3,7 +3,7 @@
 use App\Http\Controllers\Api\V1\Auth\LoginController;
 use App\Http\Controllers\Api\V1\Auth\RegisterController;
 use App\Http\Controllers\Api\V1\CompaniesController;
-use App\Http\Controllers\Api\V1\InquiryController;
+use App\Http\Controllers\Api\V1\InquiriesController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -31,5 +31,5 @@ Route::prefix('auth/')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('companies', CompaniesController::class);
-    Route::post('inquiries', [InquiryController::class, 'store']);
+    Route::post('inquiries', [InquiriesController::class, 'store']);
 });
