@@ -42,13 +42,18 @@ DB_PASSWORD="your_db_password"
 ABSTRACT_PHONE_VALIDATION_API_KEY="your_api_key"
 ```
 
-4. Database Setup
+4. Generate Application Key
+```bash
+php artisan key:generate
+```
+
+5. Database Setup
 ```bash
 php artisan migrate
 php artisan db:seed  # Optional: Seed sample data
 ```
 
-5. Start Development Server
+6. Start Development Server
 ```bash
 php artisan serve
 ```
